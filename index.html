@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wave Shooter 3D</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud">
+    <div class="hud-left">
+      <div class="bar"><div id="hp-fill" class="bar-fill hp"></div><span id="hp-text"></span></div>
+      <div class="bar xp-bar"><div id="xp-fill" class="bar-fill xp"></div><span id="xp-text"></span></div>
+    </div>
+    <div class="stats">
+      <span id="level">Level 1</span>
+      <span id="score">Score: 0</span>
+      <span id="time">Time: 0s</span>
+      <span id="kills">Kills: 0</span>
+    </div>
+  </div>
+
+  <div id="levelup" class="overlay hidden">
+    <h1>LEVEL UP!</h1>
+    <p>Выбери апгрейд</p>
+    <div id="upgrade-cards"></div>
+  </div>
+
+  <div id="game-over" class="overlay hidden">
+    <h1>GAME OVER</h1>
+    <div id="final-stats"></div>
+    <button id="restart-btn">Заново</button>
+  </div>
+
+  <div id="pause-screen" class="overlay hidden">
+    <h1>PAUSE</h1>
+    <p>Esc или P — продолжить</p>
+    <button id="resume-btn">Продолжить</button>
+  </div>
+
+  <button id="sound-toggle" title="Mute (M)">🔊</button>
+
+  <div id="start-screen" class="overlay">
+    <h1>WAVE SHOOTER 3D</h1>
+    <p>WASD — движение, мышь — прицел, ЛКМ — стрельба, Esc/P — пауза</p>
+    <div id="best-score"></div>
+    <button id="start-btn">Начать</button>
+  </div>
+
+  <script src="https://unpkg.com/three@0.149.0/build/three.min.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

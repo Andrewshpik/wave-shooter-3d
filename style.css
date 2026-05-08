@@ -1,0 +1,218 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: #0a0a12;
+  color: #e8e8f0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+
+#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  cursor: crosshair;
+}
+
+#hud {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+  font-size: 18px;
+  font-weight: 600;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+.hud-left { display: flex; flex-direction: column; gap: 6px; }
+.bar.xp-bar { height: 18px; }
+.bar-fill.xp {
+  background: linear-gradient(90deg, #4a9bff, #6bd0ff);
+}
+
+.bar {
+  position: relative;
+  width: 280px;
+  height: 26px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  transition: width 0.15s ease-out;
+}
+
+.bar-fill.hp {
+  background: linear-gradient(90deg, #e23b3b, #ff6b6b);
+}
+
+.bar span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: right;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 18, 0.85);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  z-index: 10;
+  backdrop-filter: blur(4px);
+}
+
+.overlay h1 {
+  font-size: 64px;
+  letter-spacing: 4px;
+  background: linear-gradient(180deg, #ffd84a, #ff8a3a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.overlay p {
+  font-size: 18px;
+  color: #b0b0c0;
+}
+
+.overlay button {
+  padding: 14px 36px;
+  font-size: 20px;
+  font-weight: 600;
+  background: linear-gradient(180deg, #ffd84a, #ff8a3a);
+  color: #1a1a24;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.overlay button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 138, 58, 0.4);
+}
+
+#final-stats {
+  font-size: 22px;
+  text-align: center;
+  line-height: 1.6;
+  color: #d0d0e0;
+}
+
+.hidden { display: none !important; }
+
+.boss-warning {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 80px;
+  font-weight: 900;
+  letter-spacing: 8px;
+  color: #ff4040;
+  text-shadow: 0 0 30px rgba(255, 64, 64, 0.8), 0 4px 12px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  z-index: 5;
+  animation: bossWarn 1.5s ease-out forwards;
+}
+
+@keyframes bossWarn {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  60%  { opacity: 1; transform: translate(-50%, -50%) scale(1.0); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+}
+
+#sound-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  background: rgba(20, 20, 30, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: #e8e8f0;
+  font-size: 22px;
+  border-radius: 8px;
+  cursor: pointer;
+  z-index: 4;
+  transition: background 0.15s, transform 0.1s;
+}
+#sound-toggle:hover { background: rgba(40, 40, 60, 0.9); transform: scale(1.05); }
+
+#best-score {
+  font-size: 16px;
+  color: #ffd84a;
+  letter-spacing: 1px;
+}
+
+#final-stats b { color: #ffd84a; }
+
+#upgrade-cards {
+  display: flex;
+  gap: 18px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 1100px;
+}
+
+.upgrade-card {
+  width: 240px;
+  padding: 22px 18px;
+  background: linear-gradient(180deg, #1f1f2e, #14141e);
+  border: 2px solid rgba(255, 216, 74, 0.3);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  text-align: center;
+}
+
+.upgrade-card:hover {
+  transform: translateY(-4px);
+  border-color: #ffd84a;
+  box-shadow: 0 8px 28px rgba(255, 216, 74, 0.25);
+}
+
+.upgrade-card .icon {
+  font-size: 40px;
+  margin-bottom: 8px;
+}
+
+.upgrade-card .name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffd84a;
+  margin-bottom: 8px;
+}
+
+.upgrade-card .desc {
+  font-size: 14px;
+  color: #c0c0d0;
+  line-height: 1.4;
+}
