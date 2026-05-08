@@ -120,10 +120,15 @@ class Sfx {
 const sfx = new Sfx();
 soundToggleBtn.onclick = () => sfx.toggle();
 
+// ---------- Device detection ----------
+const isTouch = (navigator.maxTouchPoints > 0) || ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
+const isMobile = isTouch && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+if (isTouch) document.body.classList.add('is-touch');
+
 // ---------- Three.js setup ----------
 const canvas = document.getElementById('game');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobile });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.25 : 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x0a0a12);
 renderer.shadowMap.enabled = true;
@@ -147,7 +152,7 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.45));
 const sun = new THREE.DirectionalLight(0xfff2c2, 1.1);
 sun.position.set(20, 40, 15);
 sun.castShadow = true;
-sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.mapSize.set(isMobile ? 512 : 1024, isMobile ? 512 : 1024);
 sun.shadow.camera.left = -40;
 sun.shadow.camera.right = 40;
 sun.shadow.camera.top = 40;
@@ -172,7 +177,7 @@ scene.add(grid);
 // ---------- Input ----------
 const keys = new Set();
 const mouseNDC = new THREE.Vector2(0, 0);
-const mouseState = { down: false };
+const mouseState = { down: false, hasMoved: false };
 
 window.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
@@ -183,17 +188,111 @@ window.addEventListener('keydown', e => {
   if (k === 'm') sfx.toggle();
 });
 window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
-canvas.addEventListener('mousemove', e => {
+
+// ---------- Virtual joysticks (twin-stick for touch) ----------
+class Joystick {
+  constructor(elem) {
+    this.elem = elem;
+    this.knob = elem.querySelector('.knob');
+    this.active = false;
+    this.pointerId = null;
+    this.startX = 0;
+    this.startY = 0;
+    this.x = 0; // -1..1
+    this.y = 0;
+    this.maxRadius = 60;
+  }
+  start(pointerId, cx, cy) {
+    this.active = true;
+    this.pointerId = pointerId;
+    this.startX = cx;
+    this.startY = cy;
+    this.elem.style.left = cx + 'px';
+    this.elem.style.top = cy + 'px';
+    this.elem.classList.add('active');
+    this.x = 0; this.y = 0;
+    this.knob.style.transform = 'translate(0, 0)';
+  }
+  move(cx, cy) {
+    let dx = cx - this.startX;
+    let dy = cy - this.startY;
+    const len = Math.hypot(dx, dy);
+    if (len > this.maxRadius) {
+      dx = (dx / len) * this.maxRadius;
+      dy = (dy / len) * this.maxRadius;
+    }
+    this.x = dx / this.maxRadius;
+    this.y = dy / this.maxRadius;
+    this.knob.style.transform = `translate(${dx}px, ${dy}px)`;
+  }
+  end() {
+    this.active = false;
+    this.pointerId = null;
+    this.elem.classList.remove('active');
+    this.x = 0; this.y = 0;
+  }
+}
+const leftJoy = new Joystick(document.getElementById('joy-left'));
+const rightJoy = new Joystick(document.getElementById('joy-right'));
+
+// Mouse handlers (only for non-touch pointer events)
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'mouse') return;
   mouseNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
   mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  mouseState.hasMoved = true;
 });
-canvas.addEventListener('mousedown', e => { if (e.button === 0) mouseState.down = true; });
-canvas.addEventListener('mouseup', e => { if (e.button === 0) mouseState.down = false; });
+canvas.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse') {
+    if (e.button === 0) mouseState.down = true;
+    return;
+  }
+  // Touch / pen
+  e.preventDefault();
+  const half = window.innerWidth / 2;
+  const isLeftSide = e.clientX < half;
+  const stick = isLeftSide ? leftJoy : rightJoy;
+  if (!stick.active) stick.start(e.pointerId, e.clientX, e.clientY);
+});
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerType === 'mouse') return;
+  if (leftJoy.pointerId === e.pointerId) leftJoy.move(e.clientX, e.clientY);
+  else if (rightJoy.pointerId === e.pointerId) rightJoy.move(e.clientX, e.clientY);
+});
+function endPointer(e) {
+  if (e.pointerType === 'mouse') {
+    if (e.button === 0) mouseState.down = false;
+    return;
+  }
+  if (leftJoy.pointerId === e.pointerId) leftJoy.end();
+  else if (rightJoy.pointerId === e.pointerId) rightJoy.end();
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('pointerleave', e => {
+  // Only kill touch joysticks on leave; mouse handled by pointerup.
+  if (e.pointerType === 'mouse') return;
+  if (leftJoy.pointerId === e.pointerId) leftJoy.end();
+  else if (rightJoy.pointerId === e.pointerId) rightJoy.end();
+});
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 
 const raycaster = new THREE.Raycaster();
 const aimPoint = new THREE.Vector3();
-function updateAimPoint() {
+function updateAimPoint(player) {
+  // Touch: right joystick drives aim, fixed offset from player.
+  if (rightJoy.active) {
+    const len = Math.hypot(rightJoy.x, rightJoy.y);
+    if (len > 0.05) {
+      aimPoint.set(
+        player.mesh.position.x + (rightJoy.x / Math.max(len, 1)) * 30,
+        0,
+        player.mesh.position.z + (rightJoy.y / Math.max(len, 1)) * 30
+      );
+      return;
+    }
+  }
+  // Mouse: raycast ground plane.
   raycaster.setFromCamera(mouseNDC, camera);
   const hits = raycaster.intersectObject(ground);
   if (hits.length) aimPoint.copy(hits[0].point);
@@ -320,12 +419,17 @@ class Player {
 
   update(dt, game) {
     let dx = 0, dz = 0;
-    if (keys.has('w') || keys.has('ц') || keys.has('arrowup')) dz -= 1;
-    if (keys.has('s') || keys.has('ы') || keys.has('arrowdown')) dz += 1;
-    if (keys.has('a') || keys.has('ф') || keys.has('arrowleft')) dx -= 1;
-    if (keys.has('d') || keys.has('в') || keys.has('arrowright')) dx += 1;
-    const len = Math.hypot(dx, dz);
-    if (len > 0) { dx /= len; dz /= len; }
+    if (leftJoy.active) {
+      dx = leftJoy.x;
+      dz = leftJoy.y;
+    } else {
+      if (keys.has('w') || keys.has('ц') || keys.has('arrowup')) dz -= 1;
+      if (keys.has('s') || keys.has('ы') || keys.has('arrowdown')) dz += 1;
+      if (keys.has('a') || keys.has('ф') || keys.has('arrowleft')) dx -= 1;
+      if (keys.has('d') || keys.has('в') || keys.has('arrowright')) dx += 1;
+      const len = Math.hypot(dx, dz);
+      if (len > 1) { dx /= len; dz /= len; }
+    }
     this.mesh.position.x += dx * this.speed * dt;
     this.mesh.position.z += dz * this.speed * dt;
 
@@ -336,7 +440,8 @@ class Player {
     }
 
     this.shootCd = Math.max(0, this.shootCd - dt);
-    if (mouseState.down && this.shootCd <= 0) this.shoot(game);
+    const firing = mouseState.down || (rightJoy.active && Math.hypot(rightJoy.x, rightJoy.y) > 0.15);
+    if (firing && this.shootCd <= 0) this.shoot(game);
 
     if (this.iframes > 0) this.iframes -= dt;
     const flashing = this.iframes > 0 && Math.floor(this.iframes * 20) % 2 === 0;
@@ -901,7 +1006,7 @@ class Game {
       this.nextBossAt += 60;
     }
 
-    updateAimPoint();
+    updateAimPoint(this.player);
     this.player.update(dt, this);
     for (const e of this.enemies) e.update(dt, this);
     for (const b of this.bullets) b.update(dt, this);
@@ -977,6 +1082,8 @@ function startGame() {
   gameOverScreen.classList.add('hidden');
   levelUpScreen.classList.add('hidden');
   pauseScreen.classList.add('hidden');
+  // Unlock audio context (iOS requires init from a user gesture).
+  sfx._ensure();
   lastTime = performance.now();
 }
 

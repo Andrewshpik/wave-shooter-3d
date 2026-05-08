@@ -12,10 +12,15 @@ html, body {
 
 #game {
   display: block;
-  width: 100vw;
-  height: 100vh;
   cursor: crosshair;
+  touch-action: none;
 }
+
+/* Touch-only / desktop-only helpers */
+.touch-only { display: none; }
+.is-touch .touch-only { display: block; }
+.is-touch .desktop-only { display: none; }
+.is-touch #game { cursor: none; }
 
 #hud {
   position: fixed;
@@ -148,6 +153,37 @@ html, body {
   100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
 }
 
+/* Virtual joysticks */
+.joystick {
+  position: fixed;
+  display: none;
+  width: 140px;
+  height: 140px;
+  margin-left: -70px;
+  margin-top: -70px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+  z-index: 6;
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.45);
+}
+.joystick.active { display: block; }
+.joystick .knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  margin-left: -28px;
+  margin-top: -28px;
+  border-radius: 50%;
+  background: rgba(255, 216, 74, 0.78);
+  box-shadow: 0 0 18px rgba(255, 216, 74, 0.55);
+  will-change: transform;
+}
+#joy-right .knob { background: rgba(255, 138, 58, 0.85); box-shadow: 0 0 18px rgba(255, 138, 58, 0.6); }
+
 #sound-toggle {
   position: fixed;
   bottom: 20px;
@@ -172,6 +208,42 @@ html, body {
 }
 
 #final-stats b { color: #ffd84a; }
+
+/* ---------- Mobile / small-screen layout ---------- */
+@media (max-width: 760px), (pointer: coarse) {
+  #hud {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    font-size: 13px;
+  }
+  .bar { width: 160px; height: 20px; }
+  .bar.xp-bar { height: 14px; }
+  .bar span { font-size: 11px; }
+  .stats { gap: 3px; font-size: 13px; }
+
+  .overlay h1 { font-size: 38px; letter-spacing: 2px; }
+  .overlay p { font-size: 14px; padding: 0 16px; text-align: center; }
+  .overlay button { padding: 12px 24px; font-size: 16px; }
+
+  #upgrade-cards { gap: 10px; padding: 0 8px; }
+  .upgrade-card { width: 150px; padding: 14px 10px; }
+  .upgrade-card .icon { font-size: 30px; margin-bottom: 4px; }
+  .upgrade-card .name { font-size: 15px; margin-bottom: 4px; }
+  .upgrade-card .desc { font-size: 11px; }
+
+  #sound-toggle {
+    bottom: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .boss-warning { font-size: 56px; letter-spacing: 4px; }
+
+  #final-stats { font-size: 18px; }
+}
 
 #upgrade-cards {
   display: flex;
