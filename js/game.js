@@ -10,7 +10,9 @@ const HUD = {
   score: document.getElementById('score'),
   time: document.getElementById('time'),
   kills: document.getElementById('kills'),
+  minimap: document.getElementById('minimap'),
 };
+HUD.minimapCtx = HUD.minimap.getContext('2d');
 const startScreen = document.getElementById('start-screen');
 const gameOverScreen = document.getElementById('game-over');
 const levelUpScreen = document.getElementById('levelup');
@@ -1108,6 +1110,95 @@ class Game {
     HUD.score.textContent = `Score: ${this.score}`;
     HUD.time.textContent = `Time: ${Math.floor(this.elapsed)}s`;
     HUD.kills.textContent = `Kills: ${this.kills}`;
+    this.drawMinimap();
+  }
+
+  drawMinimap() {
+    const ctx = HUD.minimapCtx;
+    const cv = HUD.minimap;
+    const W = cv.width, H = cv.height;
+    const cx = W / 2, cy = H / 2;
+    const R = Math.min(cx, cy) - 2;
+    const range = 40; // world units shown from edge to edge of half-radius
+    const scale = R / range;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Clip to circle so dots outside don't bleed past the border
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, TAU);
+    ctx.closePath();
+    ctx.clip();
+
+    // Concentric rings as range hints
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, (R / 3) * i, 0, TAU);
+      ctx.stroke();
+    }
+
+    const px = this.player.mesh.position.x;
+    const pz = this.player.mesh.position.z;
+
+    const plot = (wx, wz) => {
+      const dx = (wx - px) * scale;
+      const dz = (wz - pz) * scale;
+      return [cx + dx, cy + dz];
+    };
+
+    // XP orbs (small cyan)
+    ctx.fillStyle = '#6bd0ff';
+    for (const o of this.orbs) {
+      const [x, y] = plot(o.mesh.position.x, o.mesh.position.z);
+      ctx.fillRect(x - 1, y - 1, 2, 2);
+    }
+
+    // Hearts (pink)
+    ctx.fillStyle = '#ff4d6d';
+    for (const h of this.hearts) {
+      const [x, y] = plot(h.mesh.position.x, h.mesh.position.z);
+      ctx.beginPath();
+      ctx.arc(x, y, 2.5, 0, TAU);
+      ctx.fill();
+    }
+
+    // Enemies (red), bosses bigger purple
+    for (const e of this.enemies) {
+      const [x, y] = plot(e.mesh.position.x, e.mesh.position.z);
+      const isBoss = e instanceof Boss;
+      ctx.fillStyle = isBoss ? '#c06bff' : '#ff5b5b';
+      ctx.beginPath();
+      ctx.arc(x, y, isBoss ? 5 : 2.5, 0, TAU);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    // Border ring (drawn after restore so it's not clipped)
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, TAU);
+    ctx.stroke();
+
+    // Player triangle pointing toward aim
+    const ax = aimPoint.x - px;
+    const az = aimPoint.z - pz;
+    const angle = Math.atan2(az, ax);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.fillStyle = '#ffd84a';
+    ctx.beginPath();
+    ctx.moveTo(6, 0);
+    ctx.lineTo(-4, -4);
+    ctx.lineTo(-4, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
 
   gameOver() {
