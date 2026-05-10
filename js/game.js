@@ -505,22 +505,22 @@ class Player {
 
 const ENEMY_TYPES = {
   grunt: {
-    hp: 50, speedRange: [2.4, 3.6], damage: 10, color: 0xc83a3a,
+    hp: 75, speedRange: [2.8, 4.0], damage: 14, color: 0xc83a3a,
     size: [1.2, 1.6, 1.2], r: 0.7, xp: 1, score: 10, particleColor: 0xff5b5b,
   },
   fast: {
-    hp: 22, speedRange: [5.5, 7.0], damage: 8, color: 0x4ad0ff,
+    hp: 34, speedRange: [6.2, 7.8], damage: 12, color: 0x4ad0ff,
     size: [0.8, 1.2, 0.8], r: 0.5, xp: 1, score: 12, particleColor: 0x6be5ff,
   },
   tank: {
-    hp: 180, speedRange: [1.0, 1.5], damage: 22, color: 0x6a1f1f,
+    hp: 270, speedRange: [1.2, 1.7], damage: 32, color: 0x6a1f1f,
     size: [1.8, 2.2, 1.8], r: 1.0, xp: 3, score: 30, particleColor: 0xffaa55,
   },
   shooter: {
-    hp: 40, speedRange: [1.6, 2.2], damage: 0, color: 0xc23ad0,
+    hp: 60, speedRange: [1.8, 2.4], damage: 0, color: 0xc23ad0,
     size: [1.0, 1.6, 1.0], r: 0.6, xp: 2, score: 20, particleColor: 0xe06bff,
-    ranged: true, attackRange: 16, attackCd: 1.6,
-    projectileSpeed: 14, projectileDamage: 14,
+    ranged: true, attackRange: 18, attackCd: 1.2,
+    projectileSpeed: 18, projectileDamage: 18,
   },
 };
 
@@ -606,6 +606,9 @@ class Enemy {
       o.z += rand(-0.5, 0.5);
       game.spawnXPOrb(o);
     }
+    if (Math.random() < 0.25) {
+      game.spawnHeart(this.mesh.position.clone());
+    }
     for (let i = 0; i < 14; i++) {
       const a = rand(0, TAU);
       const s = rand(3, 8);
@@ -643,10 +646,10 @@ class Boss {
     this.size = size;
 
     this.r = size * 0.55;
-    this.speed = 1.6 + tier * 0.15;
-    this.hp = 800 + tier * 600;
+    this.speed = 1.9 + tier * 0.2;
+    this.hp = 1200 + tier * 800;
     this.maxHp = this.hp;
-    this.damage = 30 + tier * 5;
+    this.damage = 42 + tier * 8;
     this.dead = false;
     this.hitFlash = 0;
     this.contactCd = 0;
@@ -705,12 +708,19 @@ class Boss {
     sfx.bossDeath();
     game.score += 200 * this.tier;
     game.kills += 1;
-    // Big XP burst
-    for (let i = 0; i < 20 + this.tier * 8; i++) {
+    // Big XP + heart burst (1:1)
+    const dropCount = 20 + this.tier * 8;
+    for (let i = 0; i < dropCount; i++) {
       const o = this.mesh.position.clone();
       o.x += rand(-2, 2);
       o.z += rand(-2, 2);
       game.spawnXPOrb(o);
+    }
+    for (let i = 0; i < dropCount; i++) {
+      const h = this.mesh.position.clone();
+      h.x += rand(-3, 3);
+      h.z += rand(-3, 3);
+      game.spawnHeart(h);
     }
     // Big particle burst
     for (let i = 0; i < 60; i++) {
@@ -852,6 +862,41 @@ class XPOrb {
   }
 }
 
+class Heart {
+  constructor(pos) {
+    const mesh = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.35, 0),
+      new THREE.MeshStandardMaterial({ color: 0xff4d6d, emissive: 0xff1f4a, emissiveIntensity: 1.0, roughness: 0.4 })
+    );
+    mesh.position.copy(pos);
+    mesh.position.y = 0.5;
+    mesh.castShadow = true;
+    this.mesh = mesh;
+    this.r = 0.45;
+    this.heal = 25;
+    this.dead = false;
+    this.spinSpeed = rand(1.5, 3);
+    this.life = 20; // despawn after 20s so the field stays clean
+  }
+  update(dt, game) {
+    this.life -= dt;
+    if (this.life <= 0) { this.dead = true; return; }
+    this.mesh.rotation.y += this.spinSpeed * dt;
+    this.mesh.position.y = 0.5 + Math.sin(performance.now() * 0.004 + this.mesh.position.x) * 0.12;
+
+    const p = game.player;
+    const dx = p.mesh.position.x - this.mesh.position.x;
+    const dz = p.mesh.position.z - this.mesh.position.z;
+    const d2 = dx * dx + dz * dz;
+
+    if (d2 < (p.r + this.r) ** 2) {
+      this.dead = true;
+      sfx.pickup();
+      p.hp = Math.min(p.maxHp, p.hp + this.heal);
+    }
+  }
+}
+
 // ---------- Game ----------
 class Game {
   constructor() {
@@ -863,6 +908,7 @@ class Game {
     this.enemyBullets = [];
     this.particles = [];
     this.orbs = [];
+    this.hearts = [];
 
     this.score = 0;
     this.kills = 0;
@@ -882,6 +928,7 @@ class Game {
     for (const b of this.enemyBullets) scene.remove(b.mesh);
     for (const p of this.particles) scene.remove(p.mesh);
     for (const o of this.orbs) scene.remove(o.mesh);
+    for (const h of this.hearts) scene.remove(h.mesh);
   }
 
   _pickEnemyType() {
@@ -943,6 +990,12 @@ class Game {
     const o = new XPOrb(pos);
     this.orbs.push(o);
     scene.add(o.mesh);
+  }
+
+  spawnHeart(pos) {
+    const h = new Heart(pos);
+    this.hearts.push(h);
+    scene.add(h.mesh);
   }
 
   spawnEnemyBullet(pos, dir, speed, damage) {
@@ -1013,17 +1066,20 @@ class Game {
     for (const b of this.enemyBullets) b.update(dt, this);
     for (const p of this.particles) p.update(dt);
     for (const o of this.orbs) o.update(dt, this);
+    for (const h of this.hearts) h.update(dt, this);
 
     for (const e of this.enemies) if (e.dead) scene.remove(e.mesh);
     for (const b of this.bullets) if (b.dead) scene.remove(b.mesh);
     for (const b of this.enemyBullets) if (b.dead) scene.remove(b.mesh);
     for (const p of this.particles) if (p.dead) scene.remove(p.mesh);
     for (const o of this.orbs) if (o.dead) scene.remove(o.mesh);
+    for (const h of this.hearts) if (h.dead) scene.remove(h.mesh);
     this.enemies = this.enemies.filter(e => !e.dead);
     this.bullets = this.bullets.filter(b => !b.dead);
     this.enemyBullets = this.enemyBullets.filter(b => !b.dead);
     this.particles = this.particles.filter(p => !p.dead);
     this.orbs = this.orbs.filter(o => !o.dead);
+    this.hearts = this.hearts.filter(h => !h.dead);
 
     const target = this.player.mesh.position;
     const desired = new THREE.Vector3(target.x, 0, target.z).add(CAMERA_OFFSET);
